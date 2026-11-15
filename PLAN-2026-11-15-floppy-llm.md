@@ -135,11 +135,11 @@ Tensor names (wire format fixed): `tok_emb`, `attn_q`, `attn_k`, `attn_v`, `attn
 
 `host/Makefile`: `floppy: floppy.c vocab.c` → `cc -Os -std=c99 -o floppy floppy.c vocab.c -lm`. Embedded vocab instead of a vocab file saves parser code AND bytes.
 
-- [ ] **Step 1:** Write `scripts/export_vocab_c.py` (emits `host/vocab.c`: two arrays `vocab_spieces[]` (string literals) + `vocab_score[]`, exact same ordering sentencepiece uses so ids match) and run it.
-- [ ] **Step 2:** Write `host/floppy.c` in one go, implementing the format above.
-- [ ] **Step 3:** Write `host/Makefile`.
-- [ ] **Step 4:** State-change build step alone: `make -C host` → produces `host/floppy` with no compiler errors/warnings (`-Wall`). If warnings: fix them; if link errors: missing `-lm`.
-- [ ] **Step 5:** Commit, message `Single-file C99 inference host with embedded BPE vocab`.
+- [x] **Step 1:** Write `scripts/export_vocab_c.py` and run it (512 pieces — 7.7KB C file). Also added `floppy_llm/bpe_ref.py`, a pure-Python port of the pair-merge BPE encoder verified 3,494/3,500 facts token-exact vs sentencepiece (6 residuals are SentencePiece NFKC unicode normalization of exotic chars, which the C host intentionally skips). (completed in ~15 minutes incl. verification script) (emits `host/vocab.c`: two arrays `vocab_spieces[]` (string literals) + `vocab_score[]`, exact same ordering sentencepiece uses so ids match) and run it.
+- [x] **Step 2:** Write `host/floppy.c` in one go, implementing the format above. (completed in ~20 minutes; re-encodes the full window each generated token — O(n²) per token, correct and simple at ctx 128)
+- [x] **Step 3:** Write `host/Makefile`. (completed in 30 seconds)
+- [x] **Step 4:** `make -C host` → clean `-Wall` build, no warnings; binary 52,520 bytes; smoke test REPL recalls the Lincoln fact verbatim from a two-token prompt. (completed in ~10 minutes) produces `host/floppy` with no compiler errors/warnings (`-Wall`). If warnings: fix them; if link errors: missing `-lm`.
+- [x] **Step 5:** Commit, message `Single-file C99 inference host with embedded BPE vocab`. (completed in 5 seconds)
 
 ### Task 8: Cross-implementation golden test
 
