@@ -10,6 +10,14 @@ on public data and shipped as a self-contained artifact that fits in under
 vocabulary embedded) plus int8-quantized weights, with no Python or other
 dependencies needed to query the model.
 
+
+## Observations
+
+The model learned each fact as one fixed string-continuation, not as knowledge;
+trained on single-view declarative facts, it only responds to exact corpus
+prefixes. Paraphrased or differently-structured queries find no route, so it
+hallucinates — underperforming simple search.
+
 Total package: **410,921 bytes (41% of the 1MB budget)**.
 
 ## Features
