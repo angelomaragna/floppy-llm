@@ -38,7 +38,9 @@ documentation files.
 
 The training corpus (`data/facts.txt`) and its attribution metadata
 (`data/facts.meta.json`) are derived from English Wikipedia text, obtained
-via the Hugging Face dataset `wikimedia/wikipedia` (config `20231101.en`).
+via the Hugging Face dataset `wikimedia/wikipedia` (currently config
+`20231101.simple`, Simple English Wikipedia; earlier runs used
+`20231101.en`).
 
 Wikipedia text is licensed under the Creative Commons Attribution-
 ShareAlike 4.0 International License (CC BY-SA 4.0):

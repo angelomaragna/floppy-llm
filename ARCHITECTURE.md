@@ -80,3 +80,29 @@ ai-lite/
 - 360k params at byte level may need long training to drive loss down; mitigations: more epochs (corpus is tiny), wider vocab BPE-512 fallback.
 - Over-memorization is a feature here, not overfitting — evaluation criteria must reflect "recall facts", not generalization.
 - License: keep the attribution metadata even for a PoC.
+
+---
+
+## Outcome (post-execution addendum, 2026-11-15)
+
+The design above was executed with these resolved decisions and deviations:
+
+- **Tokenizer**: byte-level was replaced by **BPE-512 SentencePiece** (review
+  decision d) — better convergence per batch; vocab embedded in the C host.
+- **Model**: Config "A" was resized to fit the tied embedding inside the
+  360k total: **d_model=112** (not 120), 2 layers, 4 heads, FFN 448 —
+  exactly **358,960 parameters**, enforced by a test.
+- **Dataset**: execution started on `wikimedia/wikipedia` `20231101.en`,
+  later switched to **`20231101.simple`** (Simple English Wikipedia) for
+  cleaner sentences and better famous-history coverage.
+- **Corpus lifecycle**: the 3,500-fact corpus was later split into three
+  topic-pure chunks (`scripts/split_facts.py`), each expanded with
+  prompt-side subject-stub augmentation (`scripts/augment_facts.py`),
+  producing three expert models (`model/model1of3..3of3`) instead of one.
+- **Size**: final package is 410,921 bytes — 41.1% of the 1MB budget; the
+  degradation step (d=104) was never needed.
+- Training required two correctness fixes along the way (RoPE even/odd
+  pairing; small-std init for the tied embedding), documented in the PLAN.
+
+See `README.md` for current usage and `PLAN-2026-11-15-floppy-llm.md` for
+the task-by-task execution record.

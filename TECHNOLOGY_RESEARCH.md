@@ -53,3 +53,17 @@ At 360k params, embedding table dominates the budget. With byte-level vocab (256
 4. Tokenizer: byte-level vs tiny BPE (512/1024).
 5. Architecture family: decoder-only GPT (recommended) vs other minimal designs.
 6. Evaluation criteria for "proof of concept" success (reproduces memorized facts? sensible completions? loss threshold?).
+
+---
+
+## Decisions resolved (post-execution addendum, 2026-11-15)
+
+All five open decisions in section 3 were resolved during execution:
+1. Budget: **1,000,000 bytes** literal (achieved: 41.1% used).
+2. The 360k figure includes the embedding table (**358,960 total**).
+3. Dataset: `wikimedia/wikipedia` — executed on `20231101.en`, later
+   switched to **`20231101.simple`** for cleaner prose.
+4. Tokenizer: **tiny BPE (sentencepiece), vocab 512** — byte-level rejected.
+5. Architecture family: **decoder-only GPT** (GELU FFN chosen at review);
+   success criterion became "stub prompts recall memorized facts verbatim",
+   demonstrated for `Trafalgar` and `Napoleon Bonaparte` prompts.
