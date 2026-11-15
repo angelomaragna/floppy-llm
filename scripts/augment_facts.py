@@ -1,56 +1,90 @@
-"""Expand a fact split with 2 synthetic declarative variants per entry.
+"""Expand a fact split with 2 synthetic PROMPT-SIDE variants per entry.
 
-Generic augmentation: each original fact is additionally stated in two of six
-historical-register wrappers (rotated deterministically by fact index), so
-the model sees the same knowledge in multiple surface forms — the fix for
-one-form memorization identified earlier.
+Each fact's subject (its leading proper-noun phrase, or first capitalized
+subject for generic leads, or its year) is emitted as a standalone stub
+prompt, teaching the model stub->fact retrieval routes instead of only
+sentence continuations:
+
+  variant 1 (glossary):      "<Subject>. <original fact>"
+  variant 2 (short stub):     "<LastWord>. <original fact>" with casing
+                              alternating between CAPITALIZED and lowercased
+  year-subject facts instead: "<full subject>. <fact>" plus
+                              "What happened in <year>? <fact>"
 
 Usage:
     .venv/bin/python scripts/augment_facts.py data/facts_split1.txt
 
-Writes <input>_augmented.txt: original fact + 2 variants, interleaved per
-fact so training batches mix them. The input file is not modified.
+Writes <input>_augmented.txt: original + 2 variants interleaved per fact.
+The input file is not modified.
 """
 
 import os
 import sys
 
-WRAPPERS = [
-    "Historically, {f}.",
-    "It is recorded that {f}.",
-    "As a historical fact, {f}.",
-    "Notably, {f}.",
-    "According to historical records, {f}.",
-    "In the historical record, {f}.",
-]
-
-SENTENCE_STARTERS = {
-    "The", "A", "An", "It", "In", "On", "At", "He", "She", "They", "There",
-    "This", "These", "After", "Before", "Since", "From", "By", "As", "Its",
-    "His", "Her",
-}
+MAX_LEAD_WORDS = 6
+STOP = {"The", "A", "An", "It", "In", "On", "At", "He", "She", "They", "There",
+        "This", "These", "After", "Before", "Since", "From", "By", "As", "Its",
+        "His", "Her"}
 
 
-def lower_first(fact: str) -> str:
-    """Lowercase the first character when the fact opens with a generic
-    starter; keep capitalization when it opens with a proper noun."""
-    first_word = fact.split(" ", 1)[0]
-    if first_word in SENTENCE_STARTERS or first_word[0].islower():
-        return fact[0].lower() + fact[1:]
-    return fact
+def subject_of(fact: str):
+    """(subject phrase, year or None) mirroring split_facts bucket logic."""
+    import re
+    words = re.findall(r"[A-Za-z]+|\d+", fact)
+    CONNECTORS = {"of", "the", "de", "da", "von", "van", "des", "du"}
+    cap_seq = []
+    for w in words[:MAX_LEAD_WORDS]:
+        if w[0].isupper() and w not in STOP:
+            cap_seq.append(w)
+        elif cap_seq and w.lower() in CONNECTORS and len(words) > words.index(w) + 1:
+            # lowercase connector inside a proper-noun phrase (Battle of ...)
+            nxt = words[words.index(w) + 1]
+            if nxt[0].isupper():
+                cap_seq.append(w)
+                continue
+            break
+        elif cap_seq:
+            break
+    subject = " ".join(cap_seq) if cap_seq else None
+    year = None
+    for w in words:
+        if w.isdigit() and len(w) == 4:
+            year = w
+            break
+    if subject is None:
+        for w in words:
+            if w[0].isupper() and w not in STOP:
+                subject = w
+                break
+    return subject, year
 
 
 def variants(fact: str, index: int) -> list:
-    """Two synthetic declarative wrappers, deterministic per index."""
-    f = fact.rstrip(".")
-    picks = (index % len(WRAPPERS), (index + 1) % len(WRAPPERS))
-    seen = set()
+    import re
+    subject, year = subject_of(fact)
+    fact = fact.rstrip(".")
     out = []
-    for p in picks:
-        if p in seen:
-            continue
-        seen.add(p)
-        out.append(WRAPPERS[p].format(f=lower_first(f)))
+
+    if subject is None and year is not None:
+        # year-only facts: invert into a question route (two lines)
+        return [f"What happened in {year}? {fact}.",
+                f"{year}. {fact}."]
+    if subject is None:
+        subject = "This"
+
+    # variant 1: full-subject glossary line (subject as prompt)
+    subj = subject.rstrip(".")
+    out.append(f"{subj}. {fact}.")
+
+    # variant 2: short stub, casing rotated for coverage of both prompt forms
+    cap_words = [w for w in subj.split(" ") if w[0].isupper()]
+    last = cap_words[-1] if cap_words else subj.split(" ")[-1]
+    stub = last if index % 2 == 0 else last[0].lower() + last[1:]
+    if stub.lower() == subj.split(" ")[-1].lower() and len(subj.split(" ")) == 1 \
+            and stub == subj:
+        # single-word subject: use lowercase variant as the second form
+        stub = subj[0].lower() + subj[1:] if subj[0].isupper() else subj
+    out.append(f"{stub}. {fact}.")
     return out
 
 

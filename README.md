@@ -19,6 +19,24 @@ declarative facts, it only responds to exact corpus prefixes. Paraphrased or
 differently-structured queries find no route, so it hallucinates —
 underperforming simple search.
 
+The issue is clear, **topics are too sparse**. An option is to increase the
+dataset with synthetic data. Splitting balances per-topic capacity however
+doesn't change how facts are learned. Wrapper augmentation prepends phrases
+("Historically,") to whole sentences, so the fact still starts with
+"The Battle of Trafalgar" — creating zero prompts starting "Trafalgar".
+Bare subject prompts remain unseen.
+
+Improvement comes from **synthetic entries** where the subject appears alone as
+prompt, so the model learns stub→fact associations instead of only sentence
+continuations. Emitting these mechanically from our existing subject
+extraction creates the missing retrieval routes for bare prompts. Examples:
+
+```
+ 1. Trafalgar. The Battle of Trafalgar was a sea battle fought on 21 October 1805...
+ 2. Battle of Trafalgar: a sea battle fought on 21 October 1805 between the navies...
+ 3. trafalgar. The Battle of Trafalgar was a sea battle fought on 21 October 1805...
+```
+
 Total package: **410,921 bytes (41% of the 1MB budget)**.
 
 ## Features
