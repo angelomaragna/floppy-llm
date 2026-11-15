@@ -265,6 +265,14 @@ static float g_x[MAX_DIM], g_xb[MAX_DIM], g_q[MAX_DIM], g_att[MAX_DIM];
 static float g_h[MAX_FFN], g_logits[MAX_VOCAB], g_e1[MAX_DIM], g_e2[MAX_DIM];
 static float *g_kcache[MAX_TENSORS], *g_vcache[MAX_TENSORS];
 
+static float _softmax_max_prob(const float *x, int n) {
+    float mx = x[0];
+    for (int i = 1; i < n; i++) if (x[i] > mx) mx = x[i];
+    float sum = 0;
+    for (int i = 0; i < n; i++) sum += expf(x[i] - mx);
+    return 1.0f / sum; /* prob of the max logit */
+}
+
 static void rmsnorm(float *out, const float *x, const float *w, int d) {
     float ss = 0;
     for (int i = 0; i < d; i++) ss += x[i] * x[i];
@@ -285,6 +293,9 @@ static void matvec(float *out, const float *x, const float *W, int nout, int nin
    if next != NULL, fills next[t] with argmax of position t.
    if debug, prints "ARGMAX t id" per position to stderr. */
 static void forward(const int *ids, int n, int *next, int debug) {
+    /* debug: last-position logit info is printed by caller; forward prints
+       per-position ARGMAX lines for the whole window when debug=2. */
+    int debug_all = 2;
     int d = (int)g_model.d_model;
     int nh = (int)g_model.n_heads;
     int hd = d / nh;
@@ -389,12 +400,17 @@ static void forward(const int *ids, int n, int *next, int debug) {
         float bestv = g_logits[0];
         for (int voc = 1; voc < (int)g_model.vocab_size; voc++)
             if (g_logits[voc] > bestv) { bestv = g_logits[voc]; argmax = voc; }
-        if (debug) fprintf(stderr, "ARGMAX %d %d\n", t, argmax);
+        if (debug == debug_all)
+            fprintf(stderr, "ARGMAX %d %d\n", t, argmax);
+        else if (debug == 1 && t == n - 1)
+            fprintf(stderr, "ARGMAX last id=%d softmax_p=%.4f logit=%.3f\n",
+                    argmax, _softmax_max_prob(g_logits, (int)g_model.vocab_size),
+                    bestv);
         if (next) next[t] = argmax;
     }
 }
 
-static void generate(const int *prompt, int n, int steps, float temp) {
+static void generate(const int *prompt, int n, int steps, float temp, int debug) {
     int ctx = (int)g_model.context_len;
     int gen[MAX_CTX * 2];
     int total = n;
@@ -406,6 +422,9 @@ static void generate(const int *prompt, int n, int steps, float temp) {
         const int *window = gen + (total > ctx ? total - ctx : 0);
         forward(window, len, next, 0);
         int tk = next[len - 1];
+        if (debug) {
+            forward(window, len, NULL, 1); /* last-position debug line */
+        }
         if (tk == EOS) break;
         gen[total++] = tk;
         decode_ids(&tk, 1);
@@ -444,10 +463,10 @@ int main(int argc, char **argv) {
         int n = bpe_encode(prompt, ids, MAX_CTX);
         if (debug) {
             int next[MAX_CTX];
-            forward(ids, n, next, 1);
+            forward(ids, n, next, 2); /* full per-position ARGMAX stream */
         }
         fputs(prompt, stdout);
-        generate(ids, n, ctx, temp);
+        generate(ids, n, ctx, temp, 0); /* stream already printed above */
         fputs("\n", stdout);
         return 0;
     }
@@ -460,7 +479,7 @@ int main(int argc, char **argv) {
         if (line[0] == 0) continue;
         int ids[MAX_CTX];
         int n = bpe_encode(line, ids, MAX_CTX);
-        generate(ids, n, ctx, temp);
+        generate(ids, n, ctx, temp, debug);
         fputs("\n", stdout);
     }
     return 0;

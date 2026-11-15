@@ -133,9 +133,11 @@ def c_host_argmax(prompt: str) -> list:
         capture_output=True, text=True, check=True)
     ids = []
     for line in proc.stderr.splitlines():
-        if line.startswith("ARGMAX "):
-            _, t, ident = line.split()
-            ids.append((int(t), int(ident)))
+        parts = line.split()
+        if (len(parts) == 3 and parts[0] == "ARGMAX"
+                and parts[1].lstrip("-").isdigit()
+                and parts[2].lstrip("-").isdigit()):
+            ids.append((int(parts[1]), int(parts[2])))
     stream = [i for _, i in sorted(ids)]
     return stream
 
