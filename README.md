@@ -48,9 +48,14 @@ Total package: **410,921 bytes (41% of the 1MB budget)**.
 - int8 symmetric per-tensor absmax weight quantization in a custom flat
   binary format (FLPY v1)
 - Interactive REPL and one-shot generation with temperature sampling
+- Prompt-side data augmentation: subject-stub lines (`Trafalgar. <fact>`)
+  that create retrieval routes for short prompts
+- Topic-pure 3-way corpus split and per-topic "expert" models
+  (model1of3/2of3/3of3), each trained on its own split
+- Debugging: `--logits-debug` per-token probability trace with an
+  ANCHORED/DRIFTING verdict, plus `scripts/debug_prompt.py` for
+  tokenization, top-k distributions, and corpus proximity
 - Full rebuild pipeline from raw Wikipedia stream to shipped binary
-- Golden cross-implementation test: the C host must produce argmax streams
-  identical to an independent NumPy reference over the same weights
 
 ## Requirements
 
@@ -62,39 +67,50 @@ Total package: **410,921 bytes (41% of the 1MB budget)**.
 ## Installation
 
 ```bash
-git clone <this-repo> && cd ai-lite
+git clone https://github.com/angelomaragna/floppy-llm.git && cd floppy-llm
 python3 -m venv .venv
 .venv/bin/pip install torch datasets sentencepiece pytest
 ```
 
 ## Usage
 
-Build and chat (two files, zero dependencies at runtime):
+Query the default single model (two files, zero dependencies at runtime):
 
 ```bash
 make -C host
 ./host/floppy model/model.bin
-> Abraham Lincoln
- was an American lawyer, politician, and statesman who served as the 16th
- president of the United States from 1861 until his assassination in 1865.
+> Napoleon Bonaparte
+ was a French politician and army leader who ruled France from 1799 to 1814
+ and for a short period in 1815.
 ```
 
-One-shot completion and sampling:
+One-shot and sampling: `-p "prompt"`, `-t 0.8`.
+Debug a prompt (token-level confidence):
 
 ```bash
-./host/floppy model/model.bin -p "Abraham Lincoln"
-./host/floppy model/model.bin -p "She debuted in February 2003" -t 0.8
+./host/floppy model/model.bin --logits-debug
+.venv/bin/python scripts/debug_prompt.py "Trafalgar" --topk 6
 ```
 
-Rebuild the model from scratch (fetch → tokenize → train → quantize → embed):
+### Three-expert pipeline
 
 ```bash
-.venv/bin/python scripts/fetch_facts.py         # 3,500 facts from Wikipedia
-.venv/bin/python scripts/train_tokenizer.py      # BPE-512 tokenizer
-.venv/bin/python scripts/train.py --steps 5000   # ~70s on Apple Silicon
-.venv/bin/python scripts/export_quant.py         # int8 FLPY v1 binary
-.venv/bin/python scripts/export_vocab_c.py       # embed vocab into C
-make -C host
+# 1. fetch corpus (simple-English Wikipedia; --config 20231101.en for full)
+.venv/bin/python scripts/fetch_facts.py --config 20231101.simple
+
+# 2. split into 3 topic-pure chunks, then augment each with prompt-side stubs
+.venv/bin/python scripts/split_facts.py
+for i in 1 2 3; do .venv/bin/python scripts/augment_facts.py data/facts_split$i.txt; done
+
+# 3. train expert N (repeat for 1, 2, 3)
+.venv/bin/python scripts/train_tokenizer.py --data data/facts_split1_augmented.txt --out-dir model/model1of3
+.venv/bin/python scripts/train.py           --data data/facts_split1_augmented.txt --out-dir model/model1of3
+.venv/bin/python scripts/export_quant.py    --ckpt model/model1of3/model.pt --out model/model1of3/model.bin
+.venv/bin/python scripts/export_vocab_c.py --tok model/model1of3/tokenizer.model --out host/vocab_1of3.c
+cc -Os -std=c99 -o host/floppy_1of3 host/floppy.c host/vocab_1of3.c -lm
+
+# 4. query the expert that owns the topic
+./host/floppy_2of3 model/model2of3/model.bin -p "Trafalgar"
 ```
 
 ## Tests
@@ -104,44 +120,51 @@ make -C host
 ```
 
 Unit tests for the tokenizer, fact filter, exact parameter budget, and
-quantization round-trip; a cross-implementation golden test (C host vs NumPy
-reference); and the 1MB budget acceptance test.
+quantization round-trip; a golden cross-implementation test (C host vs
+NumPy reference over the same quantized weights); and the 1MB budget
+acceptance test.
 
 ## Project structure
 
 ```
 floppy_llm/    Python package: tokenizer, fact filter, model, quant, binfmt
-scripts/       Pipeline entry points (fetch, train, export, budget check)
-host/          C99 inference host (floppy.c + generated vocab.c)
+scripts/       Pipeline: fetch, split, augment, train, export, debug, budget
+host/          C99 inference host (floppy.c + generated vocab.c per model)
 tests/         pytest suite incl. golden cross-implementation test
-data/          Generated: facts.txt + attribution metadata (not committed)
-model/         Generated: tokenizer, checkpoints, model.bin (not committed)
 docs/          Working notes (PROJECT_NOTES.md)
+data/          Generated corpora and splits (not committed)
+model/         Generated tokenizers, checkpoints, int8 binaries (not committed)
 ```
 
 ## Known limitations
 
-- Recall is prefix-dependent: distinctive prompts (60+ characters) recall
-  facts verbatim; ambiguous short prompts can drift to a different fact
-- The corpus is "history" by broad markers, so it includes biographical
-  born/died/award facts
-- Exotic Unicode characters (e.g. `²`) are not NFKC-normalized in the C
-  tokenizer and map to `<unk>`
+- The model completes corpus-like prompts; prompts that are trained
+  subject stubs (`Trafalgar`, `Napoleon Bonaparte`) recall their facts
+  verbatim, other phrasings drift
+- Stub casing rotates 50/50 across the corpus, so a given fact may answer
+  only one casing of its stub; multi-word names are not stubs
+  (`Admiral Nelson` is not a stub; `Admiral` is)
+- Recall is per-expert: each 1of3/2of3/3of3 model answers only its own
+  third of the corpus; there is no router between them
+- The C tokenizer skips NFKC normalization, so exotic characters
+  (`²`, accented letters) may tokenize differently than training
+- Year tokens fragment (`194` + `5`), costing generation steps
 
 ## Contributing
 
-Small, self-contained changes with tests preferred; run the full suite before
-committing. Detailed execution history, decisions and deviations are recorded
-in `PLAN-2026-11-15-floppy-llm.md` (task-by-task) and `docs/PROJECT_NOTES.md`.
+Small, self-contained changes with tests preferred; run the full suite
+before committing. Detailed execution history and decisions are recorded
+in `PLAN-2026-11-15-floppy-llm.md` (task-by-task) and
+`docs/PROJECT_NOTES.md`.
 
 ## License
 
-Code is MIT; the fact corpus and textual outputs derived from Wikipedia are
-CC BY-SA 4.0. See `LICENSE.txt` for the full terms and attribution
+Code is MIT; the fact corpus and textual outputs derived from Wikipedia
+are CC BY-SA 4.0. See `LICENSE.txt` for the full terms and attribution
 requirements (`data/facts.meta.json` records contributing articles).
 
 ## Credits
 
-- Dataset: English Wikipedia via `wikimedia/wikipedia` (Hugging Face)
+- Dataset: Simple English Wikipedia via `wikimedia/wikipedia` (Hugging Face)
 - Architectural references: TinyStories (Microsoft Research),
   nanoGPT and llama2.c (Andrej Karpathy)
