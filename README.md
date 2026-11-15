@@ -43,6 +43,14 @@ is most confident about.
 
 Total package: **410,921 bytes (41% of the 1MB budget)**.
 
+## Results
+
+The split + prompt-side augmentation operation improved stub-prompt fact
+recall on held-out split-2 probes from **27% (generic model) to 59%
+(split-2 expert) — a gain of 32 percentage points (2.2x)**, measured over
+100 reproducible subject-stub prompts. Method, confusion table, and
+per-prompt results: [`docs/EVAL_SPLIT2.md`](docs/EVAL_SPLIT2.md).
+
 ## Features
 
 - 358,960-parameter decoder-only GPT (2 layers, d_model 112, 4 heads, GELU
