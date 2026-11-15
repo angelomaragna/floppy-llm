@@ -1,7 +1,6 @@
 # Floppy LLM
 
-> A ~359k-parameter language model, trained on 3,500 Wikipedia history facts,
-> that runs from a package smaller than 1MB — fitting on a floppy disk.
+> A ~359k-parameter LLM trained on 3,500 Wikipedia history facts, runnable from a package under 1MB — a floppy disk.
 
 ## Description
 
