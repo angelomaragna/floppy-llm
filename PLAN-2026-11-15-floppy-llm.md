@@ -58,13 +58,13 @@
 
 `scripts/fetch_facts.py`: streams `wikimedia/wikipedia` config `20231101.en` via `datasets.load_dataset(..., streaming=True, split="train")`; applies fact_filter; dedupes by normalized sentence; stops at 3,500 facts; writes `data/facts.txt` (one fact per line) and `data/facts.meta.json` (contributing article titles + Wikipedia URL attribution for CC BY-SA).
 
-- [ ] **Step 1:** Write `tests/fixtures/sample_article.json` — a realistic hand-written fixture: one `{"title": "1415", "text": "Events of 1415 ... Battle of Agincourt ... Henry V ..."}` style article of ~6 short paragraphs covering one history and one non-history case.
-- [ ] **Step 2:** Write `floppy_llm/fact_filter.py` per spec above.
-- [ ] **Step 3:** Write `tests/test_fact_filter.py`: unit tests against the fixture — `is_history_article` returns True/False for the two cases; `extract_facts` returns only year-bearing, ≤200-byte, bracket-stripped sentences; a sentence with no year is excluded.
-- [ ] **Step 4:** Run `.venv/bin/pytest tests/test_fact_filter.py -q` → all pass. If it fails: read the failing assertion, adjust filter constants, rerun.
-- [ ] **Step 5:** Write `scripts/fetch_facts.py` per spec.
-- [ ] **Step 6:** Run `.venv/bin/python scripts/fetch_facts.py` → `data/facts.txt` has EXACTLY 3,500 lines, each non-empty, and `data/facts.meta.json` parses with a non-empty titles list. This downloads streams a lot — expect minutes. If fewer than 3,500 facts are found after the full stream: loosen `HISTORY_MARKERS` (more markers) before reducing the cap, and record in README.
-- [ ] **Step 7:** Commit, message `Add Wikipedia history-fact extraction pipeline (3500 facts)` — commit only code and fixture, `data/` is gitignored.
+- [x] **Step 1:** Write `tests/fixtures/sample_article.json` (completed in 60 seconds) — a realistic hand-written fixture: one `{"title": "1415", "text": "Events of 1415 ... Battle of Agincourt ... Henry V ..."}` style article of ~6 short paragraphs covering one history and one non-history case.
+- [x] **Step 2:** Write `floppy_llm/fact_filter.py` per spec above. (completed in 90 seconds; markers extended with generic 'battle'/'war')
+- [x] **Step 3:** Write `tests/test_fact_filter.py` (completed in 60 seconds): unit tests against the fixture — `is_history_article` returns True/False for the two cases; `extract_facts` returns only year-bearing, ≤200-byte, bracket-stripped sentences; a sentence with no year is excluded.
+- [x] **Step 4:** Run `.venv/bin/pytest tests/test_fact_filter.py -q` → all pass (7 passed). (completed in 40 seconds) If it fails: read the failing assertion, adjust filter constants, rerun.
+- [x] **Step 5:** Write `scripts/fetch_facts.py` per spec, plus a `--sample N` flag for timing runs. (completed in 120 seconds)
+- [x] **Step 6:** Run `.venv/bin/python scripts/fetch_facts.py` → EXACTLY 3,500 lines verified, 0 empty, valid meta with 2,560 contributing articles; timing sample first (5,001 articles → 986 facts in 4s processing) predicted the full run; full run examined 16,052 articles, ~6s processing + ~3 min dataset streaming. Quality note: markers are broad, corpus is dominated by 'born/died/award' biographical facts rather than pure political history — acceptable for the PoC, recorded in README at Task 9. (completed in ~4 minutes wall time) `data/facts.txt` has EXACTLY 3,500 lines, each non-empty, and `data/facts.meta.json` parses with a non-empty titles list. This downloads streams a lot — expect minutes. If fewer than 3,500 facts are found after the full stream: loosen `HISTORY_MARKERS` (more markers) before reducing the cap, and record in README.
+- [x] **Step 7:** Commit, message `Add Wikipedia history-fact extraction pipeline (3500 facts)` (completed in 10 seconds) — commit only code and fixture, `data/` is gitignored.
 
 ### Task 4: Tokenizer training on the fact corpus
 
