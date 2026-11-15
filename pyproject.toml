@@ -1,0 +1,11 @@
+[project]
+name = "floppy-llm"
+version = "0.1.0"
+description = "Sub-1MB LLM proof of concept: ~360k-param GPT on Wikipedia history facts, int8 weights, single-file C99 host"
+requires-python = ">=3.9"
+dependencies = [
+    "torch",
+    "datasets",
+    "sentencepiece",
+    "pytest",
+]
