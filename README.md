@@ -37,6 +37,10 @@ extraction creates the missing retrieval routes for bare prompts. Examples:
  3. trafalgar. The Battle of Trafalgar was a sea battle fought on 21 October 1805...
 ```
 
+Prompt casing has also been improved at inference level: the host scores first-letter
+uppercase/lowercase variants of the input and generates from whichever the model
+is most confident about.
+
 Total package: **410,921 bytes (41% of the 1MB budget)**.
 
 ## Features
