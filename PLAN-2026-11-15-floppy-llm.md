@@ -27,11 +27,11 @@
 
 `.pyproject.toml` contains project name `floppy-llm`, Python >=3.10, and dependencies `torch`, `datasets`, `sentencepiece`, `pytest`. `.gitignore` ignores `.venv/`, `data/`, `model/`, `host/floppy`, `__pycache__/`, `.pytest_cache/`.
 
-- [ ] **Step 1:** Run `git init` in `/Users/developer/business/ai-lite` (folder already has the two MD docs; commit them in this task as the initial commit).
-- [ ] **Step 2:** Create `.venv` with `python3 -m venv .venv` and install deps: `.venv/bin/pip install torch datasets sentencepiece pytest`. State-change step — run alone, not bundled with file writing.
-- [ ] **Step 3:** Write the four scaffold files listed above.
-- [ ] **Step 4:** Verify: `.venv/bin/python -c "import torch, datasets, sentencepiece; print('ok')"` → prints `ok`. If it fails: read the pip error, check whether `torch` wheel for this macOS/arch failed, fix the install command, rerun.
-- [ ] **Step 5:** Commit all scaffold files plus existing MD docs, message `Project scaffold for floppy LLM PoC`.
+- [x] **Step 1:** Run `git init` (completed in 3 seconds) in `/Users/developer/business/ai-lite` (folder already has the two MD docs; commit them in this task as the initial commit).
+- [x] **Step 2:** Create `.venv` (completed in ~200 seconds incl. dependency install) with `python3 -m venv .venv` and install deps: `.venv/bin/pip install torch datasets sentencepiece pytest`. State-change step — run alone, not bundled with file writing.
+- [x] **Step 3:** Write the four scaffold files listed above. (completed in 30 seconds; deviation: requires-python lowered to >=3.9 because system Python is 3.9)
+- [x] **Step 4:** Verify: `.venv/bin/python -c "import torch, datasets, sentencepiece; print('ok')"` → prints `ok` (verified;\n  venv install completed in ~3 minutes). If it fails: read the pip error, check whether `torch` wheel for this macOS/arch failed, fix the install command, rerun.
+- [x] **Step 5:** Commit all scaffold files plus existing MD docs, message `Project scaffold for floppy LLM PoC`. (completed in 5 seconds)
 
 ### Task 2: Sentence tokenizer module + tests
 
