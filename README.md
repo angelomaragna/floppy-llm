@@ -50,6 +50,9 @@ Total package: **410,921 bytes (41% of the 1MB budget)**.
 - Interactive REPL and one-shot generation with temperature sampling
 - Prompt-side data augmentation: subject-stub lines (`Trafalgar. <fact>`)
   that create retrieval routes for short prompts
+- Case-insensitive prompting: the host scores first-letter casing variants
+  of the input by model confidence and generates from the best
+  (`trafalgar` routes to the trained `Trafalgar` stub)
 - Topic-pure 3-way corpus split and per-topic "expert" models
   (model1of3/2of3/3of3), each trained on its own split
 - Debugging: `--logits-debug` per-token probability trace with an
@@ -141,9 +144,9 @@ model/         Generated tokenizers, checkpoints, int8 binaries (not committed)
 - The model completes corpus-like prompts; prompts that are trained
   subject stubs (`Trafalgar`, `Napoleon Bonaparte`) recall their facts
   verbatim, other phrasings drift
-- Stub casing rotates 50/50 across the corpus, so a given fact may answer
-  only one casing of its stub; multi-word names are not stubs
-  (`Admiral Nelson` is not a stub; `Admiral` is)
+- Multi-word names are not stubs (`Admiral Nelson` is not a stub;
+  `Admiral` is), so two-word prompts do not route; single-word stubs work
+  in either casing thanks to the host's casing-variant selection
 - Recall is per-expert: each 1of3/2of3/3of3 model answers only its own
   third of the corpus; there is no router between them
 - The C tokenizer skips NFKC normalization, so exotic characters

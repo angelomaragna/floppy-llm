@@ -103,6 +103,10 @@ The design above was executed with these resolved decisions and deviations:
   degradation step (d=104) was never needed.
 - Training required two correctness fixes along the way (RoPE even/odd
   pairing; small-std init for the tied embedding), documented in the PLAN.
+- **Query behavior**: the C host performs case-insensitive prompting — it
+  scores first-letter casing variants of the input by the model's own
+  next-token confidence and generates from the best-scoring variant,
+  so `trafalgar` and `Trafalgar` share one retrieval route.
 
 See `README.md` for current usage and `PLAN-2026-11-15-floppy-llm.md` for
 the task-by-task execution record.
