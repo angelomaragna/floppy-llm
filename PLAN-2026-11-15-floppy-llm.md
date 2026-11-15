@@ -87,12 +87,12 @@
 
 `floppy_llm/model.py`: `class TinyGPT(nn.Module)` with the fixed spec (vocab 512, d=112, 2 layers, 4 heads, FFN 448, GELU, RoPE, RMSNorm, tied `lm_head.weight = tok_emb.weight`). `count_params(model) -> int` helper counts ALL parameters. `scripts/train.py`: loads `data/facts.txt`, tokenizes with `model/tokenizer.model`, one fact = one document ending in EOS; random-batch training loop, AdamW (lr 3e-3), cosine schedule, context window 128 tokens, batch 64, device = `mps` if available else `cpu`, saves checkpoint to `model/model.pt`; prints loss every 200 steps; default epochs chosen so total steps ≈ 2,000 (tune only if loss plateaus above ~1.0).
 
-- [ ] **Step 1:** Write `floppy_llm/model.py`.
-- [ ] **Step 2:** Write `tests/test_model.py`: (a) `count_params(TinyGPT()) == 358,960` — the hard budget test, asserting exact int count; (b) a forward pass on batch shape (2, 16) returns logits shape (2, 16, 512); (c) `model.lm_head.weight is model.tok_emb.weight` (tying actually shared, not just equal-valued).
+- [x] **Step 1:** Write `floppy_llm/model.py`. (completed in 150 seconds)
+- [x] **Step 2:** Write `tests/test_model.py`: all four tests pass; param count is exactly 358,960. (completed in 60 seconds) (a) `count_params(TinyGPT()) == 358,960` — the hard budget test, asserting exact int count; (b) a forward pass on batch shape (2, 16) returns logits shape (2, 16, 512); (c) `model.lm_head.weight is model.tok_emb.weight` (tying actually shared, not just equal-valued).
 - [ ] **Step 3:** Run `.venv/bin/pytest tests/test_model.py -q` → all pass. If the param count mismatches: recount per the param math (fix code, never the test).
-- [ ] **Step 4:** Write `scripts/train.py`.
-- [ ] **Step 5:** Run training to completion: `.venv/bin/python scripts/train.py`. Expected: final loss < 1.0 on this repetitive 3,500-fact corpus (memorization regime), minutes on MPS/CPU. If loss plateaus > 1.0 after 2,000 steps: extend to 5,000 steps, note in README.
-- [ ] **Step 6:** Commit, message `TinyGPT model and training script (358,960 params)` — `model/model.pt` is gitignored (large fp32 artefact).
+- [x] **Step 4:** Write `scripts/train.py`. (completed in 120 seconds)
+- [x] **Step 5:** Run training to completion: 2,000 steps first run floored at loss ~5.6 — root-caused to two bugs (RoPE cos/sin pairing mismatched rotate_half layout; N(0,1) tied-embedding init exploding logits). Fixed RoPE to even/odd pairing + GPT-2-style 0.02 init. Retrained 2,000 steps → loss 1.02; escalated per plan to 5,000 steps → final loss 0.245 in 68s on MPS. Qualitative check: 5/20 exact greedy fact recall from ~15-char prefixes (confusions are shared-prefix facts). (completed in ~6 minutes incl. debugging): `.venv/bin/python scripts/train.py`. Expected: final loss < 1.0 on this repetitive 3,500-fact corpus (memorization regime), minutes on MPS/CPU. If loss plateaus > 1.0 after 2,000 steps: extend to 5,000 steps, note in README.
+- [x] **Step 6:** Commit, message `TinyGPT model and training script (358,960 params)` (completed in 10 seconds) `model/model.pt` is gitignored (large fp32 artefact).
 
 ### Task 6: int8 quantization and flat binary export + tests
 
