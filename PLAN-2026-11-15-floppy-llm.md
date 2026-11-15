@@ -42,10 +42,10 @@
 
 `floppy_llm/tokenizer.py` (new package dir, add `floppy_llm/__init__.py`): wraps sentencepiece. Two functions: `train_tokenizer(corpus_path, model_out, vocab_size=512)` (trains BPE, `model_type=bpe`, `byte_fallback` not needed at 512; `unk_id=0`, `bos_id=1`, `eos_id=2`, `pad_id=-1`) and `class Tok` with `encode(str) -> list[int]`, `decode(list[int]) -> str`, and `vocab_size` property. All special-id constants live as module-level names.
 
-- [ ] **Step 1:** Write `floppy_llm/tokenizer.py` with the exact API above.
-- [ ] **Step 2:** Write `tests/test_tokenizer.py`: unit tests that (a) train on a small inline corpus (~200 words repeated), (b) assert `encode`/`decode` round-trips 5 sample strings including years ("The battle took place in 1415.") byte-exactly, (c) assert `vocab_size == 512`, (d) assert `encode` of empty string returns `[]`.
-- [ ] **Step 3:** Run `.venv/bin/pytest tests/test_tokenizer.py -q` → all pass. If it fails: pytest output names the failing assertion; fix code (not the test) unless the test contradicts this spec.
-- [ ] **Step 4:** Commit, message `Add BPE-512 sentencepiece tokenizer wrapper`.
+- [x] **Step 1:** Write `floppy_llm/tokenizer.py` with the exact API above. (completed in 60 seconds)
+- [x] **Step 2:** Write `tests/test_tokenizer.py`: unit tests that (a) train on a small inline corpus (~200 words repeated), (b) assert `encode`/`decode` round-trips 5 sample strings including years ("The battle took place in 1415.") byte-exactly, (c) assert `vocab_size == 512`, (d) assert `encode` of empty string returns `[]`.
+- [x] **Step 3:** Run `.venv/bin/pytest tests/test_tokenizer.py -q` → all pass. (completed in ~10 minutes incl. debugging: sentencepiece silently drops lines >4192 chars and needs enough unique merge material for vocab 512 — test corpus now builds 2000 varied sentences; the real facts corpus is already sentence-per-line so unaffected) If it fails: pytest output names the failing assertion; fix code (not the test) unless the test contradicts this spec.
+- [x] **Step 4:** Commit, message `Add BPE-512 sentencepiece tokenizer wrapper`. (completed in 5 seconds)
 
 ### Task 3: Wikipedia fact fetcher + tests
 
