@@ -25,6 +25,11 @@
 #define UNK 0
 #define EOS 2
 
+static int bpe_encode(const char *text, int *ids, int cap);
+static float score_prompt(const int *ids, int n);
+static void encode_best_casing(const char *text, int *ids, int *n_out);
+static void forward(const int *ids, int n, int *next, int debug);
+
 /* ---------- vocab (generated) ---------- */
 extern const int sp_n;
 extern const char *sp_piece[];
@@ -231,6 +236,50 @@ static int word_encode(const char *word, int wlen, int *out, int out_cap) {
     return n;
 }
 
+/* Case-insensitive prompting: try the input as typed plus simple casing
+   variants of its first letter, and keep whichever the model is most
+   confident about. Falls through with the as-typed ids when none match. */
+static void encode_best_casing(const char *text, int *ids, int *n_out) {
+    char buf[4096];
+    strncpy(buf, text, sizeof(buf) - 1);
+    buf[sizeof(buf) - 1] = 0;
+
+    int best[MAX_CTX];
+    int best_n = 0;
+    float best_score = -1.0f;
+
+    for (int variant = 0; variant < 3; variant++) {
+        char vbuf[4096];
+        strncpy(vbuf, buf, sizeof(vbuf) - 1);
+        vbuf[sizeof(vbuf) - 1] = 0;
+        if (variant > 0 && vbuf[0]) {
+            int i = (vbuf[0] == ' ') ? 1 : 0;
+            if (variant == 1) {
+                if (vbuf[i] >= 'a' && vbuf[i] <= 'z')
+                    vbuf[i] = (char)(vbuf[i] - 32);
+            } else {
+                if (vbuf[i] >= 'A' && vbuf[i] <= 'Z')
+                    vbuf[i] = (char)(vbuf[i] + 32);
+            }
+        }
+        int ids_v[MAX_CTX];
+        int nv = bpe_encode(vbuf, ids_v, MAX_CTX);
+        if (nv == 0) continue;
+        float sc = score_prompt(ids_v, nv);
+        if (sc > best_score) {
+            best_score = sc;
+            best_n = nv;
+            memcpy(best, ids_v, sizeof(int) * (size_t)nv);
+        }
+    }
+    if (best_n > 0) {
+        memcpy(ids, best, sizeof(int) * (size_t)best_n);
+        *n_out = best_n;
+        return;
+    }
+    *n_out = bpe_encode(text, ids, MAX_CTX);
+}
+
 static int bpe_encode(const char *text, int *ids, int cap) {
     int n = 0, i = 0, len = (int)strlen(text);
     while (i < len && n < cap) {
@@ -293,6 +342,13 @@ static void matvec(float *out, const float *x, const float *W, int nout, int nin
 /* process tokens ids[0..n-1]; returns argmax of the last position's logits.
    if next != NULL, fills next[t] with argmax of position t.
    if debug, prints "ARGMAX t id" per position to stderr. */
+static float score_prompt(const int *ids, int n) {
+    /* run the model on the prompt and return the probability of the most
+       likely next token at the final position (a confidence measure) */
+    forward(ids, n, NULL, 0);
+    return _softmax_max_prob(g_logits, (int)g_model.vocab_size);
+}
+
 static void forward(const int *ids, int n, int *next, int debug) {
     /* debug: last-position logit info is printed by caller; forward prints
        per-position ARGMAX lines for the whole window when debug=2. */
@@ -498,7 +554,8 @@ int main(int argc, char **argv) {
 
     if (prompt) {
         int ids[MAX_CTX];
-        int n = bpe_encode(prompt, ids, MAX_CTX);
+        int n;
+        encode_best_casing(prompt, ids, &n);
         if (debug) {
             int next[MAX_CTX];
             forward(ids, n, next, 2); /* full per-position ARGMAX stream */
@@ -516,7 +573,8 @@ int main(int argc, char **argv) {
         line[strcspn(line, "\n")] = 0;
         if (line[0] == 0) continue;
         int ids[MAX_CTX];
-        int n = bpe_encode(line, ids, MAX_CTX);
+        int n;
+        encode_best_casing(line, ids, &n);
         generate(ids, n, ctx, temp, debug);
         fputs("\n", stdout);
     }

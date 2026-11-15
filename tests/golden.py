@@ -39,6 +39,22 @@ def prompts_and_facts():
     return [(f[:60], f) for f in chosen]
 
 
+def casing_variants(prompt: str) -> list:
+    """The 3 variants encode_best_casing tries in the C host."""
+    out = [prompt]
+    buf = list(prompt)
+    i = 1 if buf and buf[0] == ' ' else 0
+    if buf:
+        if buf[i].islower():
+            buf[i] = buf[i].upper()
+        elif buf[i].isupper():
+            buf[i] = buf[i].lower()
+        out.append("".join(buf))
+    # third variant (toggle of the first char again returns original when
+    # only one case exists); dedupe
+    return list(dict.fromkeys(out))
+
+
 def reference_argmax(prompt: str) -> list:
     """Pure-NumPy forward over the dequantized FLPY weights."""
     meta, W = _load()
