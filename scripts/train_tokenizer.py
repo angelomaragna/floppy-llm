@@ -1,9 +1,11 @@
-"""Train the BPE-512 tokenizer on the fact corpus.
+"""Train a BPE-512 tokenizer on a fact corpus.
 
-Usage: .venv/bin/python scripts/train_tokenizer.py
-Reads data/facts.txt, writes model/tokenizer.model.
+Usage:
+    .venv/bin/python scripts/train_tokenizer.py [--data PATH] [--out-dir DIR]
+Defaults keep the original behavior: data/facts.txt -> model/tokenizer.model
 """
 
+import argparse
 import os
 import sys
 
@@ -15,17 +17,22 @@ ROOT = os.path.join(os.path.dirname(__file__), "..")
 
 
 def main() -> None:
-    corpus = os.path.join(ROOT, "data", "facts.txt")
-    model_dir = os.path.join(ROOT, "model")
-    os.makedirs(model_dir, exist_ok=True)
-    model_path = os.path.join(model_dir, "tokenizer.model")
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--data", default=os.path.join(ROOT, "data", "facts.txt"),
+                    help="corpus file, one fact per line")
+    ap.add_argument("--out-dir", default=os.path.join(ROOT, "model"),
+                    help="output directory for tokenizer.model")
+    args = ap.parse_args()
 
-    train_tokenizer(corpus, model_path)
+    os.makedirs(args.out_dir, exist_ok=True)
+    model_path = os.path.join(args.out_dir, "tokenizer.model")
+
+    train_tokenizer(args.data, model_path)
 
     tok = Tok(model_path)
-    print(f"tokenizer trained: vocab_size={tok.vocab_size}")
+    print(f"tokenizer trained on {args.data}: vocab_size={tok.vocab_size}")
 
-    with open(corpus, encoding="utf-8") as f:
+    with open(args.data, encoding="utf-8") as f:
         for line in f:
             line = line.rstrip("\n")
             if line:

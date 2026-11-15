@@ -1,18 +1,11 @@
-"""Export TinyGPT checkpoint to the FLPY v1 flat int8 binary.
+"""Export a TinyGPT checkpoint to the FLPY v1 flat int8 binary.
 
-Header (little-endian):
-  0-3   magic u32 = 0x464C5059 ("FLPY")
-  4-7   version u32 = 1
-  8-11  vocab_size u32
-  12-13 d_model u16, 14-15 n_layer u16
-  16-19 n_heads u32
-  20-23 ffn_dim u32
-  24-27 context_len u32
-  28-31 n_tensors u32
-Per tensor: name_len u8, name bytes, shape_len u8, shape u32s, scale f32,
-           int8 data.
+Usage:
+    .venv/bin/python scripts/export_quant.py [--ckpt PATH] [--out PATH]
+Defaults keep the original behavior: model/model.pt -> model/model.bin
 """
 
+import argparse
 import os
 import struct
 import sys
@@ -32,7 +25,7 @@ VERSION = 1
 
 
 def tensor_map(model) -> dict:
-    """Flatten state_dict to the wire-format name -> (shape, tensor) map."""
+    """Flatten state_dict to the wire-format name -> tensor map."""
     sd = model.state_dict()
     out = {}
     out["tok_emb"] = sd["tok_emb.weight"]
@@ -95,8 +88,14 @@ def export(model_path: str, out_path: str) -> int:
 
 
 def main() -> None:
-    export(os.path.join(ROOT, "model", "model.pt"),
-           os.path.join(ROOT, "model", "model.bin"))
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--ckpt", default=os.path.join(ROOT, "model", "model.pt"),
+                    help="fp32 checkpoint to quantize")
+    ap.add_argument("--out", default=os.path.join(ROOT, "model", "model.bin"),
+                    help="output FLPY v1 binary")
+    args = ap.parse_args()
+    os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
+    export(args.ckpt, args.out)
 
 
 if __name__ == "__main__":

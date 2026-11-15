@@ -1,7 +1,8 @@
-"""Train TinyGPT on the 3,500-fact corpus.
+"""Train TinyGPT on a fact corpus.
 
-Usage: .venv/bin/python scripts/train.py [--steps N]
-Saves checkpoint to model/model.pt.
+Usage:
+    .venv/bin/python scripts/train.py [--data PATH] [--out-dir DIR] [--steps N] [--batch N] [--lr F]
+Defaults keep the original behavior: data/facts.txt -> model/model.pt
 """
 
 import argparse
@@ -23,7 +24,13 @@ ROOT = os.path.join(os.path.dirname(__file__), "..")
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--steps", type=int, default=2000)
+    ap.add_argument("--data", default=os.path.join(ROOT, "data", "facts.txt"),
+                    help="corpus file, one line per training document")
+    ap.add_argument("--out-dir", default=os.path.join(ROOT, "model"),
+                    help="output directory for model.pt")
+    ap.add_argument("--tokenizer", default=None,
+                    help="tokenizer.model path; default <out-dir>/tokenizer.model")
+    ap.add_argument("--steps", type=int, default=5000)
     ap.add_argument("--batch", type=int, default=64)
     ap.add_argument("--lr", type=float, default=3e-3)
     args = ap.parse_args()
@@ -32,12 +39,12 @@ def main() -> None:
     random.seed(0)
     device = "mps" if torch.backends.mps.is_available() else "cpu"
 
-    tok = Tok(os.path.join(ROOT, "model", "tokenizer.model"))
-    with open(os.path.join(ROOT, "data", "facts.txt"), encoding="utf-8") as f:
+    tok_path = args.tokenizer or os.path.join(args.out_dir, "tokenizer.model")
+    tok = Tok(tok_path)
+    with open(args.data, encoding="utf-8") as f:
         facts = [l.rstrip("\n") for l in f if l.strip()]
-    print(f"{len(facts)} facts, device={device}")
+    print(f"{len(facts)} corpus lines from {args.data}, device={device}")
 
-    # Tokenize: each fact is a document ending with EOS
     docs = []
     for fact in facts:
         ids = tok.encode(fact)
@@ -46,8 +53,6 @@ def main() -> None:
             docs.append(ids)
     print(f"{len(docs)} documents after tokenize (<= {CONTEXT_LEN} tokens)")
 
-    # Sample a random document as a training sequence (facts are short enough
-    # to fit whole; no packing needed for the PoC).
     model = TinyGPT().to(device)
     n = count_params(model)
     print(f"model params: {n}")
@@ -58,8 +63,7 @@ def main() -> None:
 
     def sample_batch():
         seqs = random.sample(docs, args.batch)
-        T = max(len(s) for s in seqs)
-        T = min(T, max_len)
+        T = min(max(len(s) for s in seqs), max_len)
         input_ids = torch.full((args.batch, T), EOS_ID, dtype=torch.long)
         targets = torch.full((args.batch, T), -100, dtype=torch.long)
         for i, s in enumerate(seqs):
@@ -70,6 +74,7 @@ def main() -> None:
 
     started = time.time()
     model.train()
+    loss = None
     for step in range(1, args.steps + 1):
         lr = args.lr * 0.5 * (1 + math.cos(math.pi * (step - 1) / args.steps))
         for g in opt.param_groups:
@@ -86,7 +91,7 @@ def main() -> None:
             print(f"step {step}/{args.steps} loss {loss.item():.4f} "
                   f"lr {lr:.2e} elapsed {el:.0f}s", flush=True)
 
-    out = os.path.join(ROOT, "model", "model.pt")
+    out = os.path.join(args.out_dir, "model.pt")
     torch.save(model.state_dict(), out)
     print(f"saved {out} final loss {loss.item():.4f} total {time.time()-started:.0f}s")
 
