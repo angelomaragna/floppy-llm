@@ -264,6 +264,7 @@ static void decode_ids(const int *ids, int n) {
 static float g_x[MAX_DIM], g_xb[MAX_DIM], g_q[MAX_DIM], g_att[MAX_DIM];
 static float g_h[MAX_FFN], g_logits[MAX_VOCAB], g_e1[MAX_DIM], g_e2[MAX_DIM];
 static float *g_kcache[MAX_TENSORS], *g_vcache[MAX_TENSORS];
+static float g_last_prob = 0.0f;
 
 static float _softmax_max_prob(const float *x, int n) {
     float mx = x[0];
@@ -402,10 +403,10 @@ static void forward(const int *ids, int n, int *next, int debug) {
             if (g_logits[voc] > bestv) { bestv = g_logits[voc]; argmax = voc; }
         if (debug == debug_all)
             fprintf(stderr, "ARGMAX %d %d\n", t, argmax);
-        else if (debug == 1 && t == n - 1)
-            fprintf(stderr, "ARGMAX last id=%d softmax_p=%.4f logit=%.3f\n",
-                    argmax, _softmax_max_prob(g_logits, (int)g_model.vocab_size),
-                    bestv);
+        else if (debug == 1 && t == n - 1) {
+            g_last_prob = _softmax_max_prob(
+                g_logits, (int)g_model.vocab_size);
+        }
         if (next) next[t] = argmax;
     }
 }
@@ -416,19 +417,56 @@ static void generate(const int *prompt, int n, int steps, float temp, int debug)
     int total = n;
     if (total > MAX_CTX * 2) total = MAX_CTX * 2;
     memcpy(gen, prompt, sizeof(int) * (size_t)n);
+    float prob_sum = 0.0f;
+    int prob_n = 0;
+    float prob_min = 1.0f;
     for (int step = 0; step < steps; step++) {
         int next[MAX_CTX];
         int len = total > ctx ? ctx : total;
         const int *window = gen + (total > ctx ? total - ctx : 0);
         forward(window, len, next, 0);
         int tk = next[len - 1];
-        if (debug) {
-            forward(window, len, NULL, 1); /* last-position debug line */
-        }
         if (tk == EOS) break;
+        if (debug) {
+            /* re-run last position in debug mode to capture its softmax */
+            forward(window, len, NULL, 1);
+            char piece[64 + 4];
+            const char *pp = g_piece_mem[tk];
+            int pl = g_piece_len[tk];
+            int off = 0;
+            if (pl > SPL && memcmp(pp, SP, (size_t)SPL) == 0) {
+                piece[off++] = ' ';
+                pp += SPL;
+                pl -= SPL;
+            }
+            if (off + pl < (int)sizeof(piece)) {
+                memcpy(piece + off, pp, (size_t)pl);
+                piece[off + pl] = 0;
+            } else {
+                piece[0] = 0;
+            }
+            const char *verdict = g_last_prob >= 0.90f ? "ok"
+                                   : g_last_prob >= 0.60f ? "shaky" : "guess";
+            fprintf(stderr, "  token %3d  %-22s id=%3d p=%.3f  %s\n",
+                    step, piece, tk, g_last_prob, verdict);
+            prob_sum += g_last_prob;
+            prob_n++;
+            if (g_last_prob < prob_min) prob_min = g_last_prob;
+        }
         gen[total++] = tk;
         decode_ids(&tk, 1);
         fflush(stdout);
+    }
+    if (debug && prob_n > 0) {
+        float mean = prob_sum / (float)prob_n;
+        fprintf(stderr, "  ---- %d tokens, mean confidence %.3f, min %.3f:",
+                prob_n, mean, prob_min);
+        if (mean >= 0.90f)
+            fprintf(stderr, " ANCHORED (matches a memorized fact)\n");
+        else if (mean >= 0.60f)
+            fprintf(stderr, " PARTIALLY ANCHORED (may drift)\n");
+        else
+            fprintf(stderr, " HALLUCINATING (no memorized fact matches)\n");
     }
 }
 
