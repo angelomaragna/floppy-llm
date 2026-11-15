@@ -20,9 +20,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from floppy_llm.fact_filter import extract_facts, is_history_article  # noqa: E402
 
 DATASET = "wikimedia/wikipedia"
-CONFIG = "20231101.en"
+CONFIG = "20231101.en"  # default; override with --config (e.g. 20231101.simple)
 FACTS_TARGET = 3500
-FACT_BASE_URL = "https://en.wikipedia.org/wiki/"
+FACT_BASE_URL = "https://simple.wikipedia.org/wiki/" if CONFIG == "20231101.simple" else "https://en.wikipedia.org/wiki/"
 
 
 def normalize_key(fact: str) -> str:
@@ -32,6 +32,7 @@ def normalize_key(fact: str) -> str:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--sample", type=int, default=0, help="stop after N articles")
+    ap.add_argument("--config", type=str, default=CONFIG, help="dataset config")
     ap.add_argument("--out", type=os.path.abspath, default=os.path.join(
         os.path.dirname(__file__), "..", "data"))
     args = ap.parse_args()
@@ -40,7 +41,7 @@ def main() -> None:
 
     from datasets import load_dataset
 
-    ds = load_dataset(DATASET, CONFIG, split="train", streaming=True)
+    ds = load_dataset(DATASET, args.config, split="train", streaming=True)
 
     facts = []
     seen = set()
@@ -86,7 +87,7 @@ def main() -> None:
             "dataset": f"{DATASET}",
             "config": CONFIG,
             "license": "CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/)",
-            "attribution": "Text derived from Wikipedia (https://en.wikipedia.org), contributors listed at each article URL",
+            "attribution": "Text derived from Wikipedia (contributors listed at each article URL)",
         },
         "n_facts": len(facts),
         "n_articles_examined": examined,
