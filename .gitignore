@@ -5,3 +5,5 @@ host/floppy
 __pycache__/
 .pytest_cache/
 *.pyc
+host/floppy_*
+host/*.stripped
