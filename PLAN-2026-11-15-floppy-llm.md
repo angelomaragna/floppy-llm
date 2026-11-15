@@ -118,11 +118,11 @@ Tensor names (wire format fixed): `tok_emb`, `attn_q`, `attn_k`, `attn_v`, `attn
 
 `floppy_llm/quant.py`: `quantize_tensor(t: torch.Tensor) -> (int8 ndarray, float32 scale)` using symmetric per-tensor absmax (`scale = max(abs(w))/127`, `q = round(w/scale)`); `dequantize(q, scale) -> ndarray`. `scripts/export_quant.py`: loads `model/model.pt`, quantizes every tensor, writes `model/model.bin` in the format above; prints total bytes of weights and header.
 
-- [ ] **Step 1:** Write `floppy_llm/quant.py`.
-- [ ] **Step 2:** Write `tests/test_quant.py`: (a) round-trip: max abs error of `dequantize(quantize(t))` vs `t` ≤ scale (per-tensor bound); (b) quantize of all-zeros tensor yields scale 0 and does not divide-by-zero (handle by setting scale to 1.0 and data to zeros); (c) export → re-parse `model.bin` in Python: magic/version/tensor names/count match this spec, and per-tensor int8 length equals product(shape).
+- [x] **Step 1:** Write `floppy_llm/quant.py`, plus `floppy_llm/binfmt.py` (Python-side FLPY parser, shared by export tests and the Task 8 golden reference). (completed in 180 seconds)
+- [x] **Step 2:** Write `tests/test_quant.py`: round-trip bound, zero-tensor safety, full export→parse round trip (magic/version/dims/tensor names/data sizes, weights exactly 358,960 int8). All pass. (completed in 60 seconds) (a) round-trip: max abs error of `dequantize(quantize(t))` vs `t` ≤ scale (per-tensor bound); (b) quantize of all-zeros tensor yields scale 0 and does not divide-by-zero (handle by setting scale to 1.0 and data to zeros); (c) export → re-parse `model.bin` in Python: magic/version/tensor names/count match this spec, and per-tensor int8 length equals product(shape).
 - [ ] **Step 3:** Run `.venv/bin/pytest tests/test_quant.py -q` → all pass. If parsing fails: verify every field offset against the spec table above with a manual hexdump of the first 64 bytes (`xxd model/model.bin | head -4`).
-- [ ] **Step 4:** Run `.venv/bin/python scripts/export_quant.py` → prints weights size ≈ 358,960 bytes (<360,000). If over: a tensor is unquantized or double-counted — find which by comparing the printed per-tensor sizes to the param math.
-- [ ] **Step 5:** Commit, message `int8 per-tensor quantization and FLPY v1 binary export`.
+- [x] **Step 4:** Run export → model.bin = 359,385 bytes total (weights 358,960 exactly, header+scales 425). (completed in 30 seconds) If over: a tensor is unquantized or double-counted — find which by comparing the printed per-tensor sizes to the param math.
+- [x] **Step 5:** Commit, message `int8 per-tensor quantization and FLPY v1 binary export`. (completed in 5 seconds)
 
 ### Task 7: Single-file C inference host
 
