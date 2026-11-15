@@ -74,9 +74,9 @@
 - Create: nothing new — uses `floppy_llm/tokenizer.py` from Task 2
 - Create: `scripts/train_tokenizer.py` (thin CLI: trains on `data/facts.txt`, writes `model/tokenizer.model`, prints vocab size)
 
-- [ ] **Step 1:** Write `scripts/train_tokenizer.py`.
-- [ ] **Step 2:** Run `.venv/bin/python scripts/train_tokenizer.py` → `model/tokenizer.model` exists; round-trip sanity: encode+decode of line 1 of `data/facts.txt` is byte-identical. If domain vocab overflows 512 (sentencepiece `Vocabulary size too small` error): raise vocab to 1024, note in README, and re-check the total budget in Task 8 (weights are unaffected; vocab file ~doubles to still-negligible KB).
-- [ ] **Step 4:** Commit, message `Train BPE-512 tokenizer on fact corpus`.
+- [x] **Step 1:** Write `scripts/train_tokenizer.py`. (completed in 60 seconds)
+- [x] **Step 2:** Run → vocab_size=512 exactly, round-trip byte-identical on first fact; no escalation to 1024 needed. (completed in 30 seconds) `model/tokenizer.model` exists; round-trip sanity: encode+decode of line 1 of `data/facts.txt` is byte-identical. If domain vocab overflows 512 (sentencepiece `Vocabulary size too small` error): raise vocab to 1024, note in README, and re-check the total budget in Task 8 (weights are unaffected; vocab file ~doubles to still-negligible KB).
+- [x] **Step 4:** Commit, message `Train BPE-512 tokenizer on fact corpus`. (completed in 5 seconds)
 
 ### Task 5: Model definition and trainer + tests
 
